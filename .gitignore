@@ -1,0 +1,27 @@
+# Byte-compiled / Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Environment variables
+.env
+
+# Python packaging
+*.egg-info/
+dist/
+build/
+
+# VSCode settings
+.vscode/
+
+# Logs
+*.log
+
+# Mac/Linux system files
+.DS_Store
+*.swp

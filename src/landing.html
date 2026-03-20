@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI Powered Sentiment Analyzer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Syne:wght@600;700;800;900&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg:      #0A0A0A;
+    --surface: #111111;
+    --border:  #1E1E1E;
+    --border2: #2A2A2A;
+    --text:    #F0EEE8;
+    --text-2:  #888580;
+    --text-3:  #444240;
+    --red:     #FF4D4D;
+    --green:   #00E5A0;
+    --yellow:  #F5E642;
+    --mono:    'IBM Plex Mono', monospace;
+    --head:    'Syne', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 15px; scroll-behavior: smooth; overflow-x: hidden; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    line-height: 1.6;
+    overflow-x: hidden;
+    width: 100%;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── NOISE OVERLAY ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 999;
+    opacity: 0.35;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    padding: 1.1rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.3s, background 0.3s;
+    width: 100%;
+  }
+  nav.scrolled {
+    background: rgba(10,10,10,0.92);
+    border-color: var(--border);
+    backdrop-filter: blur(12px);
+  }
+  .nav-logo {
+    font-family: var(--head);
+    font-size: 0.95rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .nav-logo-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--red);
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+  @keyframes pulse-dot {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50%       { transform: scale(1.4); opacity: 0.7; }
+  }
+  .nav-cta {
+    background: var(--text);
+    color: var(--bg);
+    font-family: var(--head);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 0.5rem 1.1rem;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    border-radius: 4px;
+    transition: opacity 0.15s, transform 0.1s;
+    display: inline-block;
+  }
+  .nav-cta:hover { opacity: 0.85; transform: translateY(-1px); }
+
+  /* ── HERO ── */
+  .hero {
+    min-height: 100svh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 7rem 1.5rem 4rem;
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+  }
+
+  /* Grid background */
+  .hero::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 50%, black 30%, transparent 100%);
+    -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 50%, black 30%, transparent 100%);
+    opacity: 0.4;
+    z-index: 0;
+  }
+
+  .hero-inner { position: relative; z-index: 1; max-width: 780px; }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    color: var(--text-2);
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    padding: 0.35rem 1rem;
+    border-radius: 6px;
+    margin-bottom: 2rem;
+    animation: fade-up 0.6s ease both;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+  .hero-badge span {
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  .hero-title {
+    font-family: var(--head);
+    font-size: clamp(1.6rem, 3.8vw, 3.2rem);
+    font-weight: 900;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    color: var(--text);
+    margin-bottom: 1.25rem;
+    animation: fade-up 0.6s 0.1s ease both;
+  }
+  .hero-title .accent-red   { color: var(--red); }
+  .hero-title .accent-green { color: var(--green); }
+
+  .hero-sub {
+    font-family: var(--mono);
+    font-size: 0.9rem;
+    color: var(--text-2);
+    line-height: 1.8;
+    max-width: 500px;
+    margin: 0 auto 2.5rem;
+    animation: fade-up 0.6s 0.2s ease both;
+  }
+
+  .hero-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    animation: fade-up 0.6s 0.3s ease both;
+  }
+  .btn-primary {
+    background: var(--text);
+    color: var(--bg);
+    font-family: var(--head);
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 0.9rem 2rem;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    border-radius: 5px;
+    transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(240,238,232,0.15);
+    opacity: 0.92;
+  }
+  .btn-secondary {
+    color: var(--text-2);
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    text-decoration: none;
+    letter-spacing: 0.08em;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: color 0.15s;
+  }
+  .btn-secondary:hover { color: var(--text); }
+
+  /* Stat chips */
+  .hero-stats {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2rem;
+    margin-top: 4rem;
+    flex-wrap: wrap;
+    animation: fade-up 0.6s 0.4s ease both;
+  }
+  .stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+  }
+  .stat-val {
+    font-family: var(--head);
+    font-size: 1.6rem;
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    color: var(--text);
+  }
+  .stat-val .unit { color: var(--green); }
+  .stat-label {
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    color: var(--text-3);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .stat-divider { width: 1px; height: 36px; background: var(--border2); }
+
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── SECTION SHARED ── */
+  section { padding: 5rem 1.5rem; width: 100%; }
+  .section-inner { max-width: 1080px; margin: 0 auto; width: 100%; }
+  .section-tag {
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .section-tag::before {
+    content: '';
+    width: 20px; height: 1px;
+    background: var(--text-3);
+  }
+  .section-title {
+    font-family: var(--head);
+    font-size: clamp(1.8rem, 4vw, 2.8rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    color: var(--text);
+    margin-bottom: 1rem;
+  }
+  .section-sub {
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    color: var(--text-2);
+    line-height: 1.8;
+    max-width: 480px;
+  }
+
+  /* ── FEATURES ── */
+  #features { border-top: 1px solid var(--border); }
+
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-top: 3.5rem;
+  }
+  .feature-card {
+    background: var(--bg);
+    padding: 2rem 1.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    transition: background 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .feature-card:hover { background: var(--surface); }
+  .feature-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: transparent;
+    transition: background 0.2s;
+  }
+  .feature-card:hover::before { background: var(--green); }
+  .feature-icon {
+    width: 36px; height: 36px;
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    background: var(--surface);
+  }
+  .feature-title {
+    font-family: var(--head);
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+  .feature-desc {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--text-2);
+    line-height: 1.8;
+  }
+
+  /* ── HOW IT WORKS ── */
+  #how { border-top: 1px solid var(--border); }
+
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    margin-top: 3.5rem;
+    position: relative;
+  }
+  .steps::before {
+    content: '';
+    position: absolute;
+    top: 20px;
+    left: calc(12.5% + 20px);
+    right: calc(12.5% + 20px);
+    height: 1px;
+    background: var(--border2);
+    z-index: 0;
+  }
+  .step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 0 1rem;
+    position: relative;
+    z-index: 1;
+  }
+  .step-num {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--border2);
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-2);
+    margin-bottom: 1.25rem;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .step:hover .step-num {
+    border-color: var(--green);
+    color: var(--green);
+  }
+  .step-title {
+    font-family: var(--head);
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.01em;
+  }
+  .step-desc {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--text-2);
+    line-height: 1.8;
+  }
+
+  /* ── TECH STACK ── */
+  #stack { border-top: 1px solid var(--border); }
+
+  .stack-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-top: 3.5rem;
+  }
+  .stack-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .stack-card:hover {
+    border-color: var(--border2);
+    transform: translateY(-3px);
+  }
+  .stack-logo {
+    font-size: 1.5rem;
+    line-height: 1;
+  }
+  .stack-name {
+    font-family: var(--head);
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+  .stack-role {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--text-2);
+    line-height: 1.7;
+  }
+  .stack-tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 0.58rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.15rem 0.45rem;
+    border-radius: 3px;
+    margin-top: auto;
+    width: fit-content;
+  }
+  .stack-tag.backend  { background: rgba(255,77,77,0.1);   color: var(--red);    border: 1px solid rgba(255,77,77,0.2);   }
+  .stack-tag.ai       { background: rgba(0,229,160,0.1);   color: var(--green);  border: 1px solid rgba(0,229,160,0.2);   }
+  .stack-tag.data     { background: rgba(245,230,66,0.1);  color: var(--yellow); border: 1px solid rgba(245,230,66,0.2);  }
+  .stack-tag.language { background: rgba(240,238,232,0.08); color: var(--text-2); border: 1px solid var(--border2); }
+
+  /* ── CTA SECTION ── */
+  #cta {
+    border-top: 1px solid var(--border);
+    text-align: center;
+  }
+  .cta-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 4rem 3rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .cta-box::before {
+    content: '';
+    position: absolute;
+    top: -1px; left: 20%; right: 20%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--green), transparent);
+  }
+  .cta-box .section-title { margin-bottom: 0.75rem; }
+  .cta-sub {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--text-2);
+    margin-bottom: 2rem;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+  }
+  .footer-logo {
+    font-family: var(--head);
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text-2);
+  }
+  .footer-made {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--text-2);
+    letter-spacing: 0.05em;
+  }
+  .footer-link {
+    color: var(--green);
+    text-decoration: none;
+    font-weight: 500;
+    border-bottom: 1px solid rgba(0,229,160,0.3);
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .footer-link:hover {
+    color: #fff;
+    border-color: #fff;
+  }
+  .footer-copy {
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    color: var(--text-3);
+    letter-spacing: 0.06em;
+  }
+
+  /* ── SCROLL REVEAL ── */
+  .reveal {
+    opacity: 0;
+    transform: translateY(28px);
+    transition: opacity 0.65s ease, transform 0.65s ease;
+  }
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .reveal-delay-1 { transition-delay: 0.1s; }
+  .reveal-delay-2 { transition-delay: 0.2s; }
+  .reveal-delay-3 { transition-delay: 0.3s; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 860px) {
+    nav { padding: 1rem 1.25rem; }
+    .features-grid { grid-template-columns: 1fr; }
+    .steps { grid-template-columns: repeat(2, 1fr); gap: 2rem; }
+    .steps::before { display: none; }
+    .stack-grid { grid-template-columns: repeat(2, 1fr); }
+    footer { flex-direction: column; gap: 0.75rem; text-align: center; }
+  }
+  @media (max-width: 480px) {
+    .stack-grid { grid-template-columns: 1fr; }
+    .steps { grid-template-columns: 1fr; }
+    .cta-box { padding: 2.5rem 1.5rem; }
+    .hero-stats { gap: 1rem; }
+    .stat-divider { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav id="nav">
+  <div class="nav-logo">
+    <div class="nav-logo-dot"></div>
+    SentimentAI
+  </div>
+  <a href="/app" class="nav-cta">Launch App →</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-inner">
+    <div class="hero-badge">
+      ⚡ <span>Powered by LLaMA 3.3 · 70B</span>
+    </div>
+
+    <h1 class="hero-title">
+      Lightning-fast sentiment <span class="accent-red">analysis</span><br />
+      for <span class="accent-green">every</span> business.
+    </h1>
+
+    <p class="hero-sub">
+      Upload any CSV of feedback — get instant sentiment breakdown
+      and AI-powered solutions in seconds.
+    </p>
+
+    <div class="hero-actions">
+      <a href="/app" class="btn-primary">Launch App →</a>
+      <a href="#how" class="btn-secondary">See how it works ↓</a>
+    </div>
+
+    <div class="hero-stats">
+      <div class="stat">
+        <div class="stat-val">3<span class="unit">s</span></div>
+        <div class="stat-label">Avg analysis time</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat">
+        <div class="stat-val">70<span class="unit">B</span></div>
+        <div class="stat-label">LLM parameters</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat">
+        <div class="stat-val">3<span class="unit">×</span></div>
+        <div class="stat-label">Sentiment classes</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat">
+        <div class="stat-val">0<span class="unit">$</span></div>
+        <div class="stat-label">Cost per analysis</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="section-inner">
+    <div class="reveal">
+      <div class="section-tag">Features</div>
+      <h2 class="section-title">Everything your business<br />needs to act on feedback</h2>
+      <p class="section-sub">Works for any industry, any feedback type. If it's text in a CSV, we analyze it.</p>
+    </div>
+
+    <div class="features-grid reveal reveal-delay-1">
+      <div class="feature-card">
+        <div class="feature-icon">📊</div>
+        <div class="feature-title">Sentiment Breakdown</div>
+        <div class="feature-desc">Instantly classify every review as Positive, Negative, or Neutral with confidence scores and animated bar charts.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🧠</div>
+        <div class="feature-title">AI Root Cause Analysis</div>
+        <div class="feature-desc">LLaMA 3.3 70B identifies the real reasons behind negative feedback and generates actionable fix recommendations.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⬇️</div>
+        <div class="feature-title">Processed CSV Export</div>
+        <div class="feature-desc">Download your original dataset enriched with sentiment labels and confidence scores — ready for your data pipeline.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <div class="feature-title">On-Demand AI</div>
+        <div class="feature-desc">Sentiment analysis runs instantly. The LLM only fires when you click "Get AI Solution" — keeping costs at zero by default.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔒</div>
+        <div class="feature-title">No Data Retained</div>
+        <div class="feature-desc">Files are processed in memory and deleted immediately after download. Your data never touches a database.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🗂️</div>
+        <div class="feature-title">Any CSV Format</div>
+        <div class="feature-desc">Works with any CSV shape. Just specify the column name containing your review text and the pipeline handles the rest.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how">
+  <div class="section-inner">
+    <div class="reveal">
+      <div class="section-tag">How it works</div>
+      <h2 class="section-title">From CSV to insights<br />in four steps</h2>
+    </div>
+
+    <div class="steps">
+      <div class="step reveal">
+        <div class="step-num">01</div>
+        <div class="step-title">Upload CSV</div>
+        <div class="step-desc">Drag and drop any CSV file containing customer reviews.</div>
+      </div>
+      <div class="step reveal reveal-delay-1">
+        <div class="step-num">02</div>
+        <div class="step-title">Set Column</div>
+        <div class="step-desc">Tell the tool which column holds your review text.</div>
+      </div>
+      <div class="step reveal reveal-delay-2">
+        <div class="step-num">03</div>
+        <div class="step-title">Run Analysis</div>
+        <div class="step-desc">The pipeline cleans, classifies, and scores every review instantly.</div>
+      </div>
+      <div class="step reveal reveal-delay-3">
+        <div class="step-num">04</div>
+        <div class="step-title">Get AI Solutions</div>
+        <div class="step-desc">Click once to trigger the LLM for deep root cause analysis and fixes.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TECH STACK -->
+<section id="stack">
+  <div class="section-inner">
+    <div class="reveal">
+      <div class="section-tag">Tech Stack</div>
+      <h2 class="section-title">Built on fast,<br />modern infrastructure</h2>
+      <p class="section-sub">Every layer chosen for speed, reliability, and zero overhead.</p>
+    </div>
+
+    <div class="stack-grid reveal reveal-delay-1">
+      <div class="stack-card">
+        <div class="stack-logo">⚡</div>
+        <div class="stack-name">FastAPI</div>
+        <div class="stack-role">High-performance Python API server. Handles file uploads, streaming responses, and in-memory CSV storage.</div>
+        <span class="stack-tag backend">Backend</span>
+      </div>
+      <div class="stack-card">
+        <div class="stack-logo">🦙</div>
+        <div class="stack-name">Groq + LLaMA 3.3</div>
+        <div class="stack-role">70B parameter model running on Groq's ultra-low latency inference for real-time root cause analysis.</div>
+        <span class="stack-tag ai">AI · LLM</span>
+      </div>
+      <div class="stack-card">
+        <div class="stack-logo">🐍</div>
+        <div class="stack-name">Python</div>
+        <div class="stack-role">Core language powering the sentiment pipeline, text cleaning, and confidence scoring logic.</div>
+        <span class="stack-tag language">Language</span>
+      </div>
+      <div class="stack-card">
+        <div class="stack-logo">🐼</div>
+        <div class="stack-name">Pandas</div>
+        <div class="stack-role">DataFrame processing for CSV parsing, sentiment aggregation, and enriched export generation.</div>
+        <span class="stack-tag data">Data</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section id="cta">
+  <div class="section-inner">
+    <div class="cta-box reveal">
+      <div class="section-tag" style="justify-content:center;">Get started</div>
+      <h2 class="section-title">Ready to understand<br />your business feedback?</h2>
+      <p class="cta-sub">Works for any industry. Upload your first CSV and get results in under 10 seconds.</p>
+      <a href="/app" class="btn-primary">Launch App →</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">SentimentAI</div>
+  <div class="footer-made">
+    Made by <a href="https://github.com/Aditya-analytics" target="_blank" class="footer-link">Aditya Patil</a>
+  </div>
+  <div class="footer-copy">FastAPI · Groq · LLaMA 3.3 · Python · Pandas</div>
+</footer>
+
+<script>
+  // Nav scroll effect
+  const nav = document.getElementById('nav');
+  window.addEventListener('scroll', () => {
+    nav.classList.toggle('scrolled', window.scrollY > 40);
+  });
+
+  // Scroll reveal
+  const reveals = document.querySelectorAll('.reveal');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        observer.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.12 });
+  reveals.forEach(el => observer.observe(el));
+</script>
+</body>
+</html>

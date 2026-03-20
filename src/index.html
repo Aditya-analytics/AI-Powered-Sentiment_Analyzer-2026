@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sentiment Analyzer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+<style>
+  :root {
+    --bg:         #FFFFFF;
+    --surface:    #FFFFFF;
+    --surface2:   #E8F3FF;
+    --border:     #D0E5F7;
+    --border2:    #B0D0EF;
+    --text:       #0A1628;
+    --text-2:     #4A6480;
+    --text-3:     #90AABF;
+    --accent:     #0EA5E9;
+    --accent-dim: rgba(14,165,233,0.1);
+    --accent-inv: #FFFFFF;
+    --red:        #F43F5E;
+    --green:      #10B981;
+    --neutral:    #6366F1;
+    --shadow-sm:  0 1px 4px rgba(14,165,233,0.1), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md:  0 4px 16px rgba(14,165,233,0.15), 0 2px 4px rgba(0,0,0,0.05);
+    --mono:       'IBM Plex Mono', monospace;
+    --head:       'Syne', sans-serif;
+    --radius:     8px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 14px; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    min-height: 100vh;
+    line-height: 1.6;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 54px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .logo {
+    font-family: var(--head);
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    letter-spacing: -0.02em;
+  }
+  .logo-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+  }
+  .header-pill {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--text-3);
+    letter-spacing: 0.08em;
+  }
+
+  /* ── PROGRESS BAR ── */
+  #progress-bar { height: 2px; background: var(--border); width: 100%; overflow: hidden; display: none; }
+  #progress-bar.active { display: block; }
+  #progress-fill {
+    height: 100%;
+    background: var(--text);
+    animation: progress-sweep 2s ease-in-out infinite;
+  }
+  @keyframes progress-sweep {
+    0%   { width: 0%;  margin-left: 0%; }
+    50%  { width: 55%; margin-left: 22%; }
+    100% { width: 0%;  margin-left: 100%; }
+  }
+
+  /* ── LAYOUT ── */
+  .app {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    min-height: calc(100vh - 55px);
+  }
+
+  /* ── LEFT PANEL ── */
+  .panel-left {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    position: sticky;
+    top: 55px;
+    height: calc(100vh - 55px);
+    overflow-y: auto;
+  }
+
+  /* ── RIGHT PANEL ── */
+  .panel-right {
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    background: #FFFFFF;
+  }
+
+  /* ── SECTION LABELS ── */
+  .section-label {
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    font-family: var(--mono);
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.85rem;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── DROPZONE ── */
+  #drop-zone {
+    border: 1.5px dashed var(--border2);
+    border-radius: var(--radius);
+    padding: 1.75rem 1.25rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
+    position: relative;
+    background: var(--surface2);
+  }
+  #drop-zone:hover, #drop-zone.dragover {
+    border-color: var(--accent);
+    border-style: solid;
+    background: var(--accent-dim);
+    box-shadow: 0 0 0 3px rgba(14,165,233,0.12);
+  }
+  #drop-zone.has-file {
+    border-color: var(--green);
+    border-style: solid;
+    background: rgba(16,185,129,0.05);
+    box-shadow: 0 0 0 3px rgba(16,185,129,0.1);
+  }
+  #drop-zone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+  .drop-icon {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 0.65rem;
+    color: var(--text-3);
+    transition: color 0.18s;
+  }
+  #drop-zone.has-file .drop-icon { color: var(--green); }
+  #drop-zone:hover .drop-icon, #drop-zone.dragover .drop-icon { color: var(--accent); }  .drop-text { font-size: 0.75rem; color: var(--text-2); line-height: 1.8; font-family: var(--mono); }
+  .drop-text strong {
+    color: var(--text);
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 0.2rem;
+    font-family: var(--head);
+  }
+  .drop-hint {
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    color: var(--text-3);
+    margin-top: 0.4rem;
+    display: inline-block;
+    background: var(--border);
+    padding: 0.15rem 0.5rem;
+    border-radius: 3px;
+    letter-spacing: 0.06em;
+  }
+  #file-name {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--green);
+    margin-top: 0.5rem;
+    word-break: break-all;
+    display: none;
+    font-weight: 500;
+  }
+
+  /* ── TEXT INPUT ── */
+  .field-wrap { display: flex; flex-direction: column; gap: 0.5rem; }
+  .field-input {
+    background: var(--surface);
+    border: 1.5px solid var(--border2);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    padding: 0.7rem 0.9rem;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    width: 100%;
+    border-radius: var(--radius);
+  }
+  .field-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(14,165,233,0.14);
+  }
+  .field-input::placeholder { color: var(--text-3); }
+  .field-error {
+    font-size: 0.65rem;
+    color: var(--red);
+    font-weight: 500;
+    display: none;
+    align-items: center;
+    gap: 0.3rem;
+    font-family: var(--mono);
+  }
+  .field-error.visible { display: flex; }
+
+  /* ── STEPPER ── */
+  .stepper {
+    display: inline-flex;
+    align-items: center;
+    border: 1.5px solid var(--border2);
+    border-radius: var(--radius);
+    background: var(--surface);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+  }
+  .stepper-btn {
+    background: none;
+    border: none;
+    color: var(--text-2);
+    font-size: 1.1rem;
+    padding: 0.55rem 1.1rem;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+    line-height: 1;
+    font-family: var(--mono);
+    font-weight: 500;
+  }
+  .stepper-btn:hover:not(:disabled) { background: var(--surface2); color: var(--text); }
+  .stepper-btn:disabled { color: var(--text-3); cursor: not-allowed; }
+  .stepper-val {
+    font-family: var(--mono);
+    font-size: 0.88rem;
+    padding: 0.55rem 1.25rem;
+    min-width: 3.5rem;
+    text-align: center;
+    border-left: 1.5px solid var(--border2);
+    border-right: 1.5px solid var(--border2);
+    color: var(--accent);
+    font-weight: 600;
+    background: var(--accent-dim);
+  }
+
+  #run-btn {
+    background: linear-gradient(135deg, #0EA5E9 0%, #38BDF8 100%);
+    color: #fff;
+    border: none;
+    font-family: var(--head);
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 0.9rem 1.5rem;
+    cursor: pointer;
+    width: 100%;
+    border-radius: var(--radius);
+    transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(14,165,233,0.4);
+  }
+  #run-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, #38BDF8 0%, #7DD3FC 100%);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  #run-btn::after {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
+    transform: skewX(-20deg);
+    transition: left 0.5s ease;
+  }
+  #run-btn:hover:not(:disabled)::before { opacity: 1; }
+  #run-btn:hover:not(:disabled)::after  { left: 160%; }
+  #run-btn:hover:not(:disabled) {
+    transform: translateY(-2px) scale(1.01);
+    box-shadow: 0 8px 32px rgba(14,165,233,0.55), 0 0 0 2px rgba(14,165,233,0.2);
+  }
+  #run-btn span { position: relative; z-index: 1; }
+  #run-btn:active:not(:disabled) { transform: translateY(0) scale(1); box-shadow: 0 2px 8px rgba(14,165,233,0.3); }
+  #run-btn:disabled {
+    background: var(--border);
+    color: var(--text-3);
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+  }
+  #run-btn:disabled::before, #run-btn:disabled::after { display: none; }
+  #run-btn .btn-arrow { font-size: 1rem; transition: transform 0.2s; position: relative; z-index: 1; }
+  #run-btn:hover:not(:disabled) .btn-arrow { transform: translateX(5px); }
+
+  /* ── ERROR BANNER ── */
+  #error-banner {
+    background: rgba(255,77,77,0.06);
+    border: 1px solid rgba(255,77,77,0.25);
+    color: var(--red);
+    padding: 0.65rem 0.85rem;
+    font-size: 0.72rem;
+    border-radius: var(--radius);
+    display: none;
+    line-height: 1.5;
+    margin-top: 0.5rem;
+    font-family: var(--mono);
+  }
+  #error-banner.visible { display: block; }
+
+  /* ── DIVIDER ── */
+  .divider { height: 1px; background: var(--border); }
+
+  /* ── PLACEHOLDER ── */
+  .placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 60vh;
+    gap: 1rem;
+    text-align: center;
+  }
+  .placeholder-glyph {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-sm);
+  }
+  .placeholder p {
+    font-size: 0.75rem;
+    line-height: 2;
+    color: var(--text-3);
+    font-family: var(--mono);
+    letter-spacing: 0.04em;
+  }
+
+  /* ── CHART BLOCK ── */
+  .chart-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    box-shadow: var(--shadow-sm);
+  }
+  .chart-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 0.25rem;
+  }
+  .chart-row {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+  }
+  .chart-label {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    width: 64px;
+    flex-shrink: 0;
+    color: var(--text-2);
+  }
+  .chart-bar-wrap {
+    flex: 1;
+    background: var(--surface2);
+    border-radius: 3px;
+    height: 12px;
+    overflow: hidden;
+  }
+  .chart-bar {
+    height: 100%;
+    border-radius: 3px;
+    width: 0%;
+    transition: width 1.1s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .chart-bar.negative { background: var(--red); }
+  .chart-bar.positive { background: var(--green); }
+  .chart-bar.neutral  { background: var(--neutral); }
+  .chart-meta {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    width: 60px;
+    flex-shrink: 0;
+    justify-content: flex-end;
+  }
+  .chart-count {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .chart-pct {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    color: var(--text-3);
+  }
+
+  /* ── LLM BLOCK ── */
+  .llm-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+  }
+  .llm-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.85rem 1.25rem;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+  }
+  .llm-badge {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    background: var(--accent-dim);
+    color: var(--accent);
+    padding: 0.2rem 0.55rem;
+    border-radius: 3px;
+    border: 1px solid rgba(14,165,233,0.25);
+  }
+  .llm-status {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    color: var(--text-3);
+    margin-left: auto;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  #llm-content {
+    padding: 1.5rem;
+    font-size: 0.82rem;
+    line-height: 1.85;
+    color: var(--text);
+    font-family: var(--mono);
+  }
+
+  /* ── MARKDOWN ── */
+  #llm-content h1, #llm-content h2, #llm-content h3 {
+    font-family: var(--head);
+    font-weight: 700;
+    color: var(--text);
+    margin: 1.25rem 0 0.5rem;
+    letter-spacing: -0.01em;
+  }
+  #llm-content h1 { font-size: 1.05rem; }
+  #llm-content h2 { font-size: 0.95rem; }
+  #llm-content h3 { font-size: 0.85rem; color: var(--text-2); }
+  #llm-content p  { margin-bottom: 0.8rem; }
+  #llm-content ul, #llm-content ol { padding-left: 1.5rem; margin-bottom: 0.8rem; }
+  #llm-content li { margin-bottom: 0.4rem; }
+  #llm-content strong { color: var(--text); font-weight: 600; }
+  #llm-content em { color: var(--text-2); font-style: italic; }
+  #llm-content code {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 0.1em 0.4em;
+    font-size: 0.85em;
+    color: var(--text);
+    font-family: var(--mono);
+    border-radius: 3px;
+  }
+  #llm-content blockquote {
+    border-left: 2px solid var(--text-3);
+    padding-left: 1rem;
+    color: var(--text-2);
+    margin: 0.8rem 0;
+  }
+  #llm-content hr { border: none; border-top: 1px solid var(--border); margin: 1.1rem 0; }
+
+  /* ── TYPEWRITER CURSOR ── */
+  .cursor {
+    display: inline-block;
+    width: 2px;
+    height: 0.9em;
+    background: var(--accent);
+    vertical-align: text-bottom;
+    margin-left: 2px;
+    animation: blink 1s step-end infinite;
+    border-radius: 1px;
+  }  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0; }
+  }
+
+  /* ── DOWNLOAD BUTTON ── */
+  #download-btn {
+    background: var(--surface);
+    border: 1.5px solid var(--border2);
+    color: var(--text);
+    font-family: var(--head);
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 0.72rem 1.35rem;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: var(--radius);
+    transition: transform 0.15s, box-shadow 0.2s, background 0.15s, border-color 0.15s, color 0.15s;
+    box-shadow: var(--shadow-sm);
+    letter-spacing: 0.04em;
+    position: relative;
+    overflow: hidden;
+  }
+  #download-btn::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(14,165,233,0.18), transparent);
+    transform: skewX(-20deg);
+    transition: left 0.5s ease;
+  }
+  #download-btn:hover::before { left: 160%; }
+  #download-btn:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 24px rgba(14,165,233,0.4);
+  }
+  .download-warning {
+    font-size: 0.63rem;
+    color: var(--red);
+    margin-top: 0.5rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-family: var(--mono);
+    letter-spacing: 0.03em;
+  }
+
+  #solve-btn {
+    background: transparent;
+    border: 1.5px solid var(--green);
+    color: var(--green);
+    font-family: var(--head);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 0.8rem 1.35rem;
+    cursor: pointer;
+    border-radius: var(--radius);
+    transition: transform 0.15s, box-shadow 0.2s, background 0.15s, color 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    position: relative;
+    overflow: hidden;
+  }
+  #solve-btn::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(16,185,129,0.15), transparent);
+    transform: skewX(-20deg);
+    transition: left 0.5s ease;
+  }
+  #solve-btn:hover:not(:disabled)::before { left: 160%; }
+  #solve-btn:hover:not(:disabled) {
+    background: var(--green);
+    color: #FFFFFF;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 24px rgba(16,185,129,0.4), 0 0 0 1px rgba(16,185,129,0.2);
+  }
+  #solve-btn:active:not(:disabled) { transform: translateY(0); box-shadow: none; }
+  #solve-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+  .solve-hint {
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    color: var(--text-3);
+    margin-top: 0.45rem;
+    letter-spacing: 0.04em;
+  }
+
+  /* ── VISIBILITY ── */
+  #results { display: none; flex-direction: column; gap: 2rem; }
+  #results.visible { display: flex; }
+  #placeholder { display: flex; }
+  #placeholder.hidden { display: none; }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 10px; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 860px) {
+    .app { grid-template-columns: 1fr; }
+    .panel-left { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--border); }
+  }
+  @media (max-width: 480px) {
+    header { padding: 0 1rem; }
+    .panel-left, .panel-right { padding: 1.25rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    Sentiment Analyzer
+  </div>
+  <div class="header-pill">⚡🌩️</div>
+</header>
+
+<div id="progress-bar"><div id="progress-fill"></div></div>
+
+<div class="app">
+
+  <!-- LEFT: UPLOAD PANEL -->
+  <aside class="panel-left">
+
+    <div>
+      <div class="section-label">Data Source</div>
+      <div id="drop-zone">
+        <input type="file" id="file-input" accept=".csv" />
+        <div class="drop-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+        </div>
+        <div class="drop-text">
+          <strong>Drop your CSV file here</strong>
+          or click to browse
+        </div>
+        <span class="drop-hint">.csv only</span>
+        <div id="file-name"></div>
+      </div>
+    </div>
+
+    <div class="field-wrap">
+      <div class="section-label">Review Column</div>
+      <input
+        class="field-input"
+        type="text"
+        id="column-name"
+        placeholder="e.g. review_text"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <div class="field-error" id="column-error">⚠ Column name is required</div>
+    </div>
+
+    <div>
+      <div class="section-label">Top N Results</div>
+      <div class="stepper">
+        <button class="stepper-btn" id="dec-btn" type="button">−</button>
+        <div class="stepper-val" id="top-n-display">3</div>
+        <button class="stepper-btn" id="inc-btn" type="button">+</button>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div>
+      <button id="run-btn" disabled>
+        <span>Run Analysis</span>
+        <span class="btn-arrow">→</span>
+      </button>
+      <div id="error-banner"></div>
+    </div>
+
+  </aside>
+
+  <!-- RIGHT: RESULTS PANEL -->
+  <main class="panel-right">
+
+    <div id="placeholder" class="placeholder">
+      <div class="placeholder-glyph">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#A09DBE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/>
+        </svg>
+      </div>
+      <p>Upload a CSV and configure<br />the parameters to begin</p>
+    </div>
+
+    <div id="results">
+
+      <div class="chart-block">
+        <div class="section-label">Sentiment Breakdown</div>
+        <div class="chart-bars" id="chart-bars"></div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div>
+        <div class="section-label">AI Root Cause Analysis</div>
+        <button id="solve-btn" disabled>
+          <span>✦</span> Get AI Solution
+        </button>
+        <div class="solve-hint">Calls LLM only when you ask — saves cost</div>
+      </div>
+
+      <div class="llm-block" id="llm-block" style="display:none;">
+        <div class="llm-header">
+          <span class="llm-badge">LLM Analysis</span>
+          <span class="llm-status" id="llm-status">Initializing...</span>
+        </div>
+        <div id="llm-content"></div>
+      </div>
+
+      <div>
+        <a id="download-btn" href="#" target="_blank">↓ Download CSV</a>
+        <div class="download-warning">⚠ Single-use — link expires after download</div>
+      </div>
+
+    </div>
+
+  </main>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  const BASE_URL = window.location.origin;
+
+  let state = 'idle';
+  let selectedFile = null;
+  let topN = 3;
+  let typewriterTimeout = null;
+  let topNegativeReviews = [];
+
+  const dropZone    = document.getElementById('drop-zone');
+  const fileInput   = document.getElementById('file-input');
+  const fileNameEl  = document.getElementById('file-name');
+  const columnInput = document.getElementById('column-name');
+  const columnError = document.getElementById('column-error');
+  const decBtn      = document.getElementById('dec-btn');
+  const incBtn      = document.getElementById('inc-btn');
+  const topNDisplay = document.getElementById('top-n-display');
+  const runBtn      = document.getElementById('run-btn');
+  const errorBanner = document.getElementById('error-banner');
+  const progressBar = document.getElementById('progress-bar');
+  const placeholder = document.getElementById('placeholder');
+  const results     = document.getElementById('results');
+  const llmContent  = document.getElementById('llm-content');
+  const llmStatus   = document.getElementById('llm-status');
+  const llmBlock    = document.getElementById('llm-block');
+  const solveBtn    = document.getElementById('solve-btn');
+  const downloadBtn = document.getElementById('download-btn');
+
+  function updateStepper() {
+    topNDisplay.textContent = topN;
+    decBtn.disabled = topN <= 1;
+    incBtn.disabled = topN >= 50;
+  }
+
+  decBtn.addEventListener('click', () => { if (topN > 1)  { topN--; updateStepper(); } });
+  incBtn.addEventListener('click', () => { if (topN < 50) { topN++; updateStepper(); } });
+
+  function validateBtn() {
+    const ok = selectedFile !== null && columnInput.value.trim() !== '';
+    runBtn.disabled = !ok || state === 'loading';
+  }
+
+  columnInput.addEventListener('input', () => {
+    if (columnInput.value.trim()) columnError.classList.remove('visible');
+    validateBtn();
+  });
+
+  function handleFile(file) {
+    if (!file || !file.name.toLowerCase().endsWith('.csv')) { showError('Only CSV files are accepted.'); return; }
+    selectedFile = file;
+    dropZone.classList.add('has-file');
+    fileNameEl.textContent = '✓ ' + file.name;
+    fileNameEl.style.display = 'block';
+    dropZone.querySelector('.drop-text strong').textContent = file.name;
+    hideError();
+    validateBtn();
+  }
+
+  fileInput.addEventListener('change', (e) => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+  dropZone.addEventListener('dragover',  (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', ()  => { dropZone.classList.remove('dragover'); });
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+  });
+
+  function showError(msg) { errorBanner.textContent = msg; errorBanner.classList.add('visible'); }
+  function hideError()    { errorBanner.classList.remove('visible'); }
+
+  function setLoading(on) {
+    state = on ? 'loading' : state;
+    runBtn.disabled = on;
+    runBtn.innerHTML = on
+      ? '<span>Analyzing...</span>'
+      : '<span>Run Analysis</span><span class="btn-arrow">→</span>';
+    on ? progressBar.classList.add('active') : progressBar.classList.remove('active');
+  }
+
+  function typewriterMarkdown(markdownStr, targetEl, onDone) {
+    if (typewriterTimeout) clearTimeout(typewriterTimeout);
+    const safeHtml  = DOMPurify.sanitize(marked.parse(markdownStr));
+    const plainText = markdownStr;
+    targetEl.innerHTML = '';
+    const cursorEl = document.createElement('span');
+    cursorEl.className = 'cursor';
+    targetEl.appendChild(cursorEl);
+    let i = 0;
+    function tick() {
+      if (i < plainText.length) {
+        const textNode = targetEl.childNodes[0];
+        if (textNode && textNode.nodeType === Node.TEXT_NODE) {
+          textNode.textContent += plainText[i];
+        } else {
+          targetEl.insertBefore(document.createTextNode(plainText[i]), cursorEl);
+        }
+        i++;
+        typewriterTimeout = setTimeout(tick, 18);
+      } else {
+        targetEl.innerHTML = safeHtml + '<span class="cursor"></span>';
+        llmStatus.textContent = 'Complete';
+        if (onDone) onDone();
+      }
+    }
+    tick();
+  }
+
+  function renderChart(counts) {
+    const chartBars = document.getElementById('chart-bars');
+    chartBars.innerHTML = '';
+    const order  = ['Negative', 'Positive', 'Neutral'];
+    const colors = { Negative: 'negative', Positive: 'positive', Neutral: 'neutral' };
+    const total  = Object.values(counts).reduce((a, b) => a + b, 0) || 1;
+    order.forEach(label => {
+      const count = counts[label] || 0;
+      const pct   = Math.round((count / total) * 100);
+      const row   = document.createElement('div');
+      row.className = 'chart-row';
+      row.innerHTML = `
+        <div class="chart-label">${label}</div>
+        <div class="chart-bar-wrap">
+          <div class="chart-bar ${colors[label]}" id="bar-${label}" style="width:0%"></div>
+        </div>
+        <div class="chart-meta">
+          <span class="chart-count">${count}</span>
+          <span class="chart-pct">${pct}%</span>
+        </div>`;
+      chartBars.appendChild(row);
+    });
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        order.forEach(label => {
+          const count = counts[label] || 0;
+          const pct   = Math.round((count / total) * 100);
+          const bar   = document.getElementById('bar-' + label);
+          if (bar) bar.style.width = pct + '%';
+        });
+      });
+    });
+  }
+
+  function renderResults(data) {
+    state = 'results';
+    placeholder.classList.add('hidden');
+    results.classList.add('visible');
+
+    if (data.sentiment_counts) renderChart(data.sentiment_counts);
+
+    // Store reviews for /solve call
+    topNegativeReviews = data.top_negative_reviews || [];
+    solveBtn.disabled = false;
+
+    if (data.download_url) {
+      downloadBtn.href = BASE_URL + data.download_url;
+      downloadBtn.style.display = 'inline-flex';
+    } else {
+      downloadBtn.style.display = 'none';
+    }
+  }
+
+  solveBtn.addEventListener('click', async () => {
+    if (!topNegativeReviews.length) return;
+    solveBtn.disabled = true;
+    solveBtn.innerHTML = '<span>⏳</span> Analyzing...';
+    llmBlock.style.display = 'block';
+    llmStatus.textContent = 'Streaming...';
+    llmContent.innerHTML = '';
+    try {
+      const res = await fetch(`${BASE_URL}/solve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reviews: topNegativeReviews }),
+      });
+      if (!res.ok) {
+        let errMsg = `Server error ${res.status}`;
+        try { const j = await res.json(); errMsg = j.detail || j.message || errMsg; } catch (_) {}
+        throw new Error(errMsg);
+      }
+      const data = await res.json();
+      typewriterMarkdown(data.llm_analysis || '', llmContent, () => {
+        solveBtn.innerHTML = '<span>✦</span> Get AI Solution';
+        solveBtn.disabled = false;
+      });
+    } catch (err) {
+      llmStatus.textContent = 'Error';
+      llmContent.textContent = err.message || 'Something went wrong.';
+      solveBtn.innerHTML = '<span>✦</span> Retry';
+      solveBtn.disabled = false;
+    }
+  });
+
+  runBtn.addEventListener('click', async () => {
+    const col = columnInput.value.trim();
+    if (!col) { columnError.classList.add('visible'); return; }
+    if (!selectedFile) { showError('Please upload a CSV file.'); return; }
+    hideError();
+    setLoading(true);
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    const url = `${BASE_URL}/analyze?top_n=${topN}&column_name=${encodeURIComponent(col)}`;
+    try {
+      const res = await fetch(url, { method: 'POST', body: formData });
+      if (!res.ok) {
+        let errMsg = `Server error ${res.status}`;
+        try { const j = await res.json(); errMsg = j.detail || j.message || errMsg; } catch (_) {}
+        throw new Error(errMsg);
+      }
+      const data = await res.json();
+      setLoading(false);
+      renderResults(data);
+    } catch (err) {
+      setLoading(false);
+      state = 'error';
+      showError(err.message || 'An unexpected error occurred.');
+      runBtn.disabled = false;
+    }
+  });
+
+  updateStepper();
+  validateBtn();
+})();
+</script>
+</body>
+</html>
