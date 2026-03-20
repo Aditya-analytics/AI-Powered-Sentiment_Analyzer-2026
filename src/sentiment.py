@@ -5,14 +5,13 @@ class Sentiment:
     # def __init__(self,text):
     #     self.text = text
 
-    def classify(self,sent):
-        #Classify sentiment
-        if sent > 0 :
-            return "Positive"
-        elif sent < 0 :
-            return "Negative"
-        else :
-            return "Neutral"
+    def classify(self, sent):
+        if sent >= 0.20:
+           return "Positive"
+        elif sent <= -0.20:
+           return "Negative"
+        else:
+           return "Neutral"
         
     def analyse(self,data):
         #Indentify sentiment

@@ -885,16 +885,19 @@
     cursorEl.className = 'cursor';
     targetEl.appendChild(cursorEl);
     let i = 0;
+    const CHUNK = 5;   // chars per tick
+    const DELAY = 16;  // ms per tick
     function tick() {
       if (i < plainText.length) {
         const textNode = targetEl.childNodes[0];
+        const chunk = plainText.slice(i, i + CHUNK);
         if (textNode && textNode.nodeType === Node.TEXT_NODE) {
-          textNode.textContent += plainText[i];
+          textNode.textContent += chunk;
         } else {
-          targetEl.insertBefore(document.createTextNode(plainText[i]), cursorEl);
+          targetEl.insertBefore(document.createTextNode(chunk), cursorEl);
         }
-        i++;
-        typewriterTimeout = setTimeout(tick, 18);
+        i += CHUNK;
+        typewriterTimeout = setTimeout(tick, DELAY);
       } else {
         targetEl.innerHTML = safeHtml + '<span class="cursor"></span>';
         llmStatus.textContent = 'Complete';
